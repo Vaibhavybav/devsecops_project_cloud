@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import os
 from io import StringIO
+from datetime import datetime, timedelta, timezone
+
+from jose import JWTError, jwt
 
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from passlib.context import CryptContext
+from pydantic import BaseModel
 
 from feature_engineering import add_inference_features, apply_decision_engine
 from model import ModelArtifactError, load_model_artifacts, predict_with_artifacts
@@ -18,6 +25,71 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable is required.")
+
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
+security = HTTPBearer(auto_error=False)
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD_HASH = pwd_context.hash("admin123")
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+def create_access_token(data: dict[str, str | int | bool]) -> str:
+    token_data = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    token_data.update({"exp": expire})
+    return jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, str | int | bool]:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if username != ADMIN_USERNAME:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return payload
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired authentication token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+
+@app.post("/login")
+async def login(credentials: LoginRequest) -> dict[str, str]:
+    if credentials.username != ADMIN_USERNAME or not pwd_context.verify(credentials.password, ADMIN_PASSWORD_HASH):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = create_access_token({"sub": credentials.username})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 def _load_request_csv(upload: UploadFile) -> pd.DataFrame:
@@ -64,7 +136,10 @@ def _add_estimated_savings(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)) -> list[dict[str, float | int | str]]:
+async def predict(
+    file: UploadFile = File(...),
+    token_payload: dict[str, str | int | bool] = Depends(verify_token),
+) -> list[dict[str, float | int | str]]:
     request_frame = _load_request_csv(file)
 
     try:
