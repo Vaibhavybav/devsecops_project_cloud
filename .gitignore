@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pkl
+.venv/
+venv/
+
+# Node / frontend
+frontend/green-cloud-guardian/node_modules/
+frontend/green-cloud-guardian/dist/
+
+# Project data and outputs
+/data/
+/outputs/
