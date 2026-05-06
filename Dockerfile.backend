@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential gcc \
+    && apt-get install -y --no-install-recommends gcc \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
@@ -15,10 +15,9 @@ RUN pip install --upgrade pip \
     && pip install -r requirements.txt
 
 COPY api.py data_loader.py evaluate.py feature_engineering.py main.py model.py vault_bootstrap.py ./
-COPY data ./data
+COPY model.pkl scaler.pkl ./
 
-RUN mkdir -p outputs \
-    && python main.py --data-dir data --output-file outputs/final_output.csv --model-file model.pkl --scaler-file scaler.pkl
+RUN mkdir -p outputs
 
 EXPOSE 8000
 

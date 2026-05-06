@@ -4,6 +4,7 @@ import os
 from io import StringIO
 from datetime import datetime, timedelta, timezone
 
+import joblib
 from jose import JWTError, jwt
 
 import pandas as pd
@@ -15,7 +16,7 @@ from pydantic import BaseModel
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from feature_engineering import add_inference_features, apply_decision_engine
-from model import ModelArtifactError, load_model_artifacts, predict_with_artifacts
+from model import predict_with_artifacts
 from vault_bootstrap import bootstrap_secrets_from_vault
 
 
@@ -42,6 +43,20 @@ pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD_HASH = pwd_context.hash("admin123")
+
+MODEL_PATH = "model.pkl"
+SCALER_PATH = "scaler.pkl"
+
+if not os.path.exists(MODEL_PATH) or not os.path.exists(SCALER_PATH):
+    raise RuntimeError(
+        f"Missing model artifacts. Expected {MODEL_PATH} and {SCALER_PATH} in the container."
+    )
+
+try:
+    MODEL = joblib.load(MODEL_PATH)
+    SCALER = joblib.load(SCALER_PATH)
+except Exception as exc:  # pragma: no cover - fail fast during startup
+    raise RuntimeError(f"Failed to load model artifacts at startup: {exc}") from exc
 
 Instrumentator().instrument(app).expose(app, include_in_schema=False)
 
@@ -153,13 +168,8 @@ async def predict(
 ) -> list[dict[str, float | int | str]]:
     request_frame = _load_request_csv(file)
 
-    try:
-        model, scaler = load_model_artifacts("model.pkl", "scaler.pkl")
-    except ModelArtifactError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
     featured = add_inference_features(request_frame)
-    scored = predict_with_artifacts(featured, model=model, scaler=scaler)
+    scored = predict_with_artifacts(featured, model=MODEL, scaler=SCALER)
     decided = apply_decision_engine(scored)
     response_frame = _add_estimated_savings(decided)
 
