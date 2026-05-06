@@ -8,22 +8,23 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+REPO_ROOT = Path(__file__).parent.parent
+
+sys.path.insert(0, str(REPO_ROOT))
 
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret")
 os.environ.setdefault("ELECTRICITY_MAPS_API_KEY", "test-electricity-key")
 os.environ.setdefault("ENABLE_VAULT_BOOTSTRAP", "false")
 
-from model import FEATURE_COLUMNS, build_pipeline  # noqa: E402
+from model import FEATURE_COLUMNS, build_pipeline, save_model_artifacts  # noqa: E402
 import feature_engineering  # noqa: E402
-import api  # noqa: E402
 
 
 def _offline_requests_get(*_args, **_kwargs):
     raise RuntimeError("offline")
 
 
-def _build_test_artifacts():
+def _write_test_artifacts() -> None:
     frame = pd.DataFrame(
         [
             {"vcpu_usage": 10.0, "ram_usage": 20.0, "cost": 14.0},
@@ -34,13 +35,20 @@ def _build_test_artifacts():
     )
     pipeline = build_pipeline(random_state=42, contamination=0.25)
     pipeline.fit(frame[FEATURE_COLUMNS])
-    return pipeline.named_steps["isolation_forest"], pipeline.named_steps["scaler"]
+    save_model_artifacts(
+        pipeline,
+        model_path=REPO_ROOT / "model.pkl",
+        scaler_path=REPO_ROOT / "scaler.pkl",
+    )
+
+
+_write_test_artifacts()
+
+import api  # noqa: E402
 
 
 @pytest.fixture()
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    model, scaler = _build_test_artifacts()
-    monkeypatch.setattr(api, "load_model_artifacts", lambda *_args, **_kwargs: (model, scaler))
     monkeypatch.setattr(feature_engineering.requests, "get", _offline_requests_get)
     return TestClient(api.app)
 
