@@ -187,7 +187,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - push
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && secrets.JWT_SECRET != '' && secrets.ELECTRICITY_MAPS_API_KEY != ''
 
     env:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -232,4 +232,4 @@ jobs:
 
       - name: Tear down stack
         if: always()
-        run: docker compose down -v
+        run: JWT_SECRET=dummy ELECTRICITY_MAPS_API_KEY=dummy docker compose down -v
