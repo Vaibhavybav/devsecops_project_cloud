@@ -204,21 +204,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Write local environment file
-        run: |
-          cat > .env <<'EOF'
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          ELECTRICITY_MAPS_API_KEY=${{ secrets.ELECTRICITY_MAPS_API_KEY }}
-          ENABLE_VAULT_BOOTSTRAP=false
-          VAULT_ADDR=http://vault:8200
-          VAULT_TOKEN=root
-          VAULT_SECRET_PATH=green-cloud-guardian
-          VAULT_KV_MOUNT=secret
-          GRAFANA_ADMIN_USER=admin
-          GRAFANA_ADMIN_PASSWORD=admin123
-          VITE_API_BASE_URL=http://127.0.0.1:8000
-          EOF
-
       - name: Start stack with Docker Compose
         run: docker compose up -d --build backend frontend prometheus grafana
 
