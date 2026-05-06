@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: green-cloud-config
+data:
+  APP_NAME: Green Cloud Cost Optimization
+  APP_ENV: production
+  API_PREFIX: /api
+  BACKEND_PORT: "8000"
+  FRONTEND_PORT: "80"
+  VAULT_ADDR: http://vault:8200
+  VAULT_SECRET_PATH: green-cloud-guardian
+  VAULT_KV_MOUNT: secret
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: backend
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - backend:8000

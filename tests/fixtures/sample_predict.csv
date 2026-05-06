@@ -1,0 +1,4 @@
+server_id,vcpu_usage,ram_usage
+vm-001,12,24
+vm-002,88,58
+vm-003,7,16

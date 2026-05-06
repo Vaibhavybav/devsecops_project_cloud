@@ -1,0 +1,84 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pkl
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+
+# Node / frontend
+frontend/green-cloud-guardian/node_modules/
+frontend/green-cloud-guardian/dist/
+frontend/green-cloud-guardian/.turbo/
+
+# Project data and outputs
+/outputs/
+
+# Ignore large datasets
+data/*.csv
+data/*.parquet
+data/*.zip
+data/*.json
+
+# Keep sample test data
+!tests/fixtures/sample_predict.csv
+
+# Keep empty data folder
+!data/.gitkeep
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+.vim/
+
+# Docker and container runtime
+Docker-compose.override.yml
+.dockerignore
+/local-volume/
+
+# Grafana and Prometheus data
+grafana-data/
+prometheus-data/
+
+# Vault dev data
+vault/data/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# IDE metadata
+.classpath
+.project
+.settings/
+*.launch
