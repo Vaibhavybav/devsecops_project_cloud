@@ -1,5 +1,6 @@
 services:
   backend:
+    image: ${BACKEND_RUNTIME_IMAGE:-green-cloud-cost-optimization-backend:local}
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -16,6 +17,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: ${FRONTEND_RUNTIME_IMAGE:-green-cloud-cost-optimization-frontend:local}
     build:
       context: ./frontend/green-cloud-guardian
       dockerfile: Dockerfile
