@@ -190,8 +190,8 @@ jobs:
     env:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       ELECTRICITY_MAPS_API_KEY: ${{ secrets.ELECTRICITY_MAPS_API_KEY }}
-      BACKEND_RUNTIME_IMAGE: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-      FRONTEND_RUNTIME_IMAGE: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+      BACKEND_RUNTIME_IMAGE: vijaypatil0046/green-cloud-cost-optimization-backend:${{ github.sha }}
+      FRONTEND_RUNTIME_IMAGE: vijaypatil0046/green-cloud-cost-optimization-frontend:${{ github.sha }}
       ENABLE_VAULT_BOOTSTRAP: "false"
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: root
