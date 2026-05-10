@@ -14,8 +14,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: green-cloud-cost-optimization-backend:local
-          imagePullPolicy: IfNotPresent
+          image: vijaypatil0046/green-cloud-cost-optimization-backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           envFrom:

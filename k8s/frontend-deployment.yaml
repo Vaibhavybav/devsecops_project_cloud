@@ -14,8 +14,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: green-cloud-cost-optimization-frontend:local
-          imagePullPolicy: IfNotPresent
+          image: vijaypatil0046/green-cloud-cost-optimization-frontend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
           readinessProbe:
