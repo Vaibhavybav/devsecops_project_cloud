@@ -102,7 +102,6 @@ jobs:
   sonarcloud-scan:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
-    if: ${{ secrets.SONAR_TOKEN != '' }}
     needs:
       - backend-test
       - frontend-check
@@ -113,7 +112,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check Sonar token
+        id: sonar-token
+        env:
+          SONAR_TOKEN_VALUE: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -n "$SONAR_TOKEN_VALUE" ]; then
+            echo "should_scan=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_scan=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping SonarCloud scan because SONAR_TOKEN is missing."
+          fi
+
       - name: SonarCloud Scan
+        if: steps.sonar-token.outputs.should_scan == 'true'
         uses: SonarSource/sonarqube-scan-action@v4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
