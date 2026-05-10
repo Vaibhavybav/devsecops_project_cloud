@@ -136,6 +136,7 @@ jobs:
     needs:
       - backend-test
       - frontend-check
+      - sonarcloud-scan
 
     steps:
       - name: Checkout Repository
