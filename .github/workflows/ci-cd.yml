@@ -126,7 +126,7 @@ jobs:
 
       - name: SonarCloud Scan
         if: steps.sonar-token.outputs.should_scan == 'true'
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: sonarsource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
