@@ -102,7 +102,7 @@ jobs:
   sonarcloud-scan:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
-    if: false
+    if: ${{ secrets.SONAR_TOKEN != '' }}
     needs:
       - backend-test
       - frontend-check
