@@ -116,36 +116,12 @@ jobs:
         working-directory: frontend/green-cloud-guardian
         run: npm test --if-present
 
-  frontend-build:
-    name: Frontend Build
-    runs-on: ubuntu-latest
-    needs:
-      - frontend-test
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - name: Install frontend dependencies
-        working-directory: frontend/green-cloud-guardian
-        run: npm install
-
-      - name: Build frontend
-        working-directory: frontend/green-cloud-guardian
-        run: npm run build
-
   sonarcloud-scan:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
     needs:
       - backend-test
-      - frontend-build
+      - frontend-test
 
     steps:
       - name: Checkout Repository
@@ -171,8 +147,8 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  docker-build-backend:
-    name: Build Backend Docker Image
+  docker-build-and-scan-backend:
+    name: Build and Scan Backend Docker Image
     runs-on: ubuntu-latest
     needs:
       - sonarcloud-scan
@@ -190,13 +166,18 @@ jobs:
           context: .
           file: Dockerfile.backend
           push: false
+          load: true
           tags: |
             ${{ env.BACKEND_IMAGE }}:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  docker-build-frontend:
-    name: Build Frontend Docker Image
+      - name: Scan backend image
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --no-progress --severity HIGH,CRITICAL ${{ env.BACKEND_IMAGE }}:ci
+
+  docker-build-and-scan-frontend:
+    name: Build and Scan Frontend Docker Image
     runs-on: ubuntu-latest
     needs:
       - sonarcloud-scan
@@ -214,6 +195,7 @@ jobs:
           context: frontend/green-cloud-guardian
           file: frontend/green-cloud-guardian/Dockerfile
           push: false
+          load: true
           build-args: |
             VITE_API_BASE_URL=/api
           tags: |
@@ -221,11 +203,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Scan frontend image
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --no-progress --severity HIGH,CRITICAL ${{ env.FRONTEND_IMAGE }}:ci
+
   docker-push-backend:
     name: Push Backend Docker Image
     runs-on: ubuntu-latest
     needs:
-      - docker-build-backend
+      - docker-build-and-scan-backend
     if: github.event_name == 'push'
 
     steps:
@@ -257,7 +243,7 @@ jobs:
     name: Push Frontend Docker Image
     runs-on: ubuntu-latest
     needs:
-      - docker-build-frontend
+      - docker-build-and-scan-frontend
     if: github.event_name == 'push'
 
     steps:
