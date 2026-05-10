@@ -1,0 +1,74 @@
+services:
+  backend:
+    image: ${BACKEND_RUNTIME_IMAGE:-green-cloud-cost-optimization-backend:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      ELECTRICITY_MAPS_API_KEY: ${ELECTRICITY_MAPS_API_KEY:?ELECTRICITY_MAPS_API_KEY is required}
+      ENABLE_VAULT_BOOTSTRAP: ${ENABLE_VAULT_BOOTSTRAP:-false}
+      VAULT_ADDR: ${VAULT_ADDR:-http://vault:8200}
+      VAULT_TOKEN: ${VAULT_TOKEN:-root}
+      VAULT_SECRET_PATH: ${VAULT_SECRET_PATH:-green-cloud-guardian}
+      VAULT_KV_MOUNT: ${VAULT_KV_MOUNT:-secret}
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    image: ${FRONTEND_RUNTIME_IMAGE:-green-cloud-cost-optimization-frontend:local}
+    build:
+      context: ./frontend/green-cloud-guardian
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - backend
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana-oss:11.5.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  vault:
+    image: hashicorp/vault:1.17
+    profiles:
+      - vault
+    cap_add:
+      - IPC_LOCK
+    command: server -dev -dev-listen-address=0.0.0.0:8200 -dev-root-token-id=root
+    ports:
+      - "8200:8200"
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

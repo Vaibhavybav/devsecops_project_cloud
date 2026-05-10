@@ -1,0 +1,277 @@
+name: DevSecOps CI-CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - feat
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+  BACKEND_IMAGE: vijaypatil0046/green-cloud-cost-optimization-backend
+  FRONTEND_IMAGE: vijaypatil0046/green-cloud-cost-optimization-frontend
+
+jobs:
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install backend lint dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt flake8
+
+      - name: Run backend lint
+        run: |
+          python -m flake8 api.py data_loader.py evaluate.py feature_engineering.py main.py model.py vault_bootstrap.py tests
+
+  backend-test:
+    name: Backend Test
+    runs-on: ubuntu-latest
+    needs:
+      - backend-lint
+
+    env:
+      JWT_SECRET: test-jwt-secret
+      ELECTRICITY_MAPS_API_KEY: test-electricity-key
+      ENABLE_VAULT_BOOTSTRAP: "false"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install backend test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: Run backend tests
+        run: pytest -q tests/test_api.py
+
+  sonarcloud-scan:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    needs:
+      - backend-test
+      - frontend-check
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check Sonar token
+        id: sonar-token
+        env:
+          SONAR_TOKEN_VALUE: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -n "$SONAR_TOKEN_VALUE" ]; then
+            echo "should_scan=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_scan=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping SonarCloud scan because SONAR_TOKEN is missing."
+          fi
+
+      - name: SonarCloud Scan
+        if: steps.sonar-token.outputs.should_scan == 'true'
+        uses: sonarsource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  frontend-check:
+    name: Frontend Lint, Test, Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install frontend dependencies
+        working-directory: frontend/green-cloud-guardian
+        run: npm install
+
+      - name: Run frontend lint
+        working-directory: frontend/green-cloud-guardian
+        run: npm run lint --if-present
+
+      - name: Run frontend tests
+        working-directory: frontend/green-cloud-guardian
+        run: npm test --if-present
+
+      - name: Build frontend
+        working-directory: frontend/green-cloud-guardian
+        run: npm run build
+
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs:
+      - backend-test
+      - frontend-check
+      - sonarcloud-scan
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        run: docker build -f Dockerfile.backend -t green-cloud-cost-optimization-backend:ci .
+
+      - name: Build frontend image
+        run: docker build -f frontend/green-cloud-guardian/Dockerfile -t green-cloud-cost-optimization-frontend:ci frontend/green-cloud-guardian
+
+  push:
+    name: Push Docker Images
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend/green-cloud-guardian
+          file: frontend/green-cloud-guardian/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=/api
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+  deploy-and-newman:
+    name: Deploy and Newman Validation
+    runs-on: ubuntu-latest
+    needs:
+      - push
+    if: github.event_name == 'push'
+
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      ELECTRICITY_MAPS_API_KEY: ${{ secrets.ELECTRICITY_MAPS_API_KEY }}
+      BACKEND_RUNTIME_IMAGE: vijaypatil0046/green-cloud-cost-optimization-backend:${{ github.sha }}
+      FRONTEND_RUNTIME_IMAGE: vijaypatil0046/green-cloud-cost-optimization-frontend:${{ github.sha }}
+      ENABLE_VAULT_BOOTSTRAP: "false"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: root
+      VAULT_SECRET_PATH: green-cloud-guardian
+      VAULT_KV_MOUNT: secret
+      GRAFANA_ADMIN_USER: admin
+      GRAFANA_ADMIN_PASSWORD: admin123
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Check required deploy secrets
+        id: deploy-secrets
+        env:
+          JWT_SECRET_VALUE: ${{ secrets.JWT_SECRET }}
+          ELECTRICITY_MAPS_API_KEY_VALUE: ${{ secrets.ELECTRICITY_MAPS_API_KEY }}
+        run: |
+          if [ -n "$JWT_SECRET_VALUE" ] && [ -n "$ELECTRICITY_MAPS_API_KEY_VALUE" ]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping deploy-and-newman because required secrets are missing."
+          fi
+
+      - name: Log in to Docker Hub
+        if: steps.deploy-secrets.outputs.should_deploy == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull validation images
+        if: steps.deploy-secrets.outputs.should_deploy == 'true'
+        run: docker compose pull backend frontend
+
+      - name: Start stack with Docker Compose
+        if: steps.deploy-secrets.outputs.should_deploy == 'true'
+        run: docker compose up -d backend frontend prometheus grafana
+
+      - name: Wait for backend health
+        if: steps.deploy-secrets.outputs.should_deploy == 'true'
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/healthz; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Backend did not become healthy in time"
+          docker compose logs backend
+          exit 1
+
+      - name: Set up Node.js
+        if: steps.deploy-secrets.outputs.should_deploy == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Newman
+        if: steps.deploy-secrets.outputs.should_deploy == 'true'
+        run: npm install -g newman
+
+      - name: Run Postman collection
+        if: steps.deploy-secrets.outputs.should_deploy == 'true'
+        run: newman run postman_collection.json --env-var baseUrl=http://127.0.0.1:8000
+
+      - name: Tear down stack
+        if: always() && steps.deploy-secrets.outputs.should_deploy == 'true'
+        run: JWT_SECRET=dummy ELECTRICITY_MAPS_API_KEY=dummy docker compose down -v

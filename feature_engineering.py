@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import pandas as pd
 import requests
 
 
-API_KEY = "b6efnGdwZWPrHKmH8HNe"
+def _get_api_key() -> str:
+    return os.getenv("ELECTRICITY_MAPS_API_KEY", "")
+
 
 region_to_zone = {
     "India": "IN",
@@ -50,8 +54,12 @@ def _fallback_carbon_intensity(zone: str) -> float:
 
 
 def get_carbon_intensity(zone: str) -> float:
+    api_key = _get_api_key()
+    if not api_key:
+        return _fallback_carbon_intensity(zone)
+
     url = f"https://api-access.electricitymaps.com/free-tier/carbon-intensity/latest?zone={zone}"
-    headers = {"auth-token": API_KEY}
+    headers = {"auth-token": api_key}
 
     try:
         response = requests.get(url, headers=headers, timeout=10)
