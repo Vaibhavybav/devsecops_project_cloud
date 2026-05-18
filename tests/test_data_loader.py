@@ -40,11 +40,22 @@ def test_load_and_merge_success(synthetic_data: Path):
     assert expected_cols.issubset(set(merged.columns))
 
 
-def test_load_and_merge_no_match_raises(synthetic_data: Path):
-    # Use a tolerance that is too low to force failure
+def test_load_and_merge_no_match_raises(tmp_path: Path):
+    # Create metadata and usage with completely different server_ids
+    # so neither exact merge nor merge_asof can match any rows.
+    meta_path = tmp_path / "servers_specs.csv"
+    pd.DataFrame([
+        {"id": 1, "timestamp": 1000, "server_id": "srvA", "flavor_id": "flv1"},
+    ]).to_csv(meta_path, index=False)
+
+    usage_path = tmp_path / "servers_usage.csv"
+    pd.DataFrame([
+        {"id": 10, "timestamp": 9999, "server_id": "srvZ", "vcpu_usage": 55.0, "ram_usage": 70.0, "host_id": "h1"},
+    ]).to_csv(usage_path, index=False)
+
     with pytest.raises(DataLoadError):
         load_and_merge_data(
-            data_dir=synthetic_data,
+            data_dir=tmp_path,
             metadata_file="servers_specs.csv",
             usage_file="servers_usage.csv",
             tolerance_seconds=0,
