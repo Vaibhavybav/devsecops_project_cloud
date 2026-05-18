@@ -16,6 +16,4 @@ FROM nginx:alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist/client /usr/share/nginx/html
 
-CMD sh -c "envsubst '\$PORT' < /etc/nginx/conf.d/default.conf > /tmp/default.conf \
-    && cp /tmp/default.conf /etc/nginx/conf.d/default.conf \
-    && nginx -g 'daemon off;'"
+CMD sh -c "sed -i 's/__PORT__/'\"$PORT\"'/g' /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
