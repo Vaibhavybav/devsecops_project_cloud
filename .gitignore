@@ -54,8 +54,7 @@ Thumbs.db
 .vim/
 
 # Docker and container runtime
-Docker-compose.override.yml
-.dockerignore
+docker-compose.override.yml
 /local-volume/
 
 # Grafana and Prometheus data
