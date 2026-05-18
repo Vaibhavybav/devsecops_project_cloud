@@ -77,7 +77,7 @@ logs/
 .Trashes
 ehthumbs.db
 
-# IDE metadata
+# IDE metadata and etc
 .classpath
 .project
 .settings/
