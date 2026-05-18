@@ -9,6 +9,7 @@ import { SummaryCards } from "@/components/dashboard/SummaryCards";
 import { ResultsTable } from "@/components/dashboard/ResultsTable";
 import { Visualizations } from "@/components/dashboard/Visualizations";
 import { InsightsPanel } from "@/components/dashboard/InsightsPanel";
+import { buildApiUrl } from "@/lib/api";
 import { getAuthToken, clearAuthToken } from "@/lib/auth";
 import type { VMResult, DashboardSummary } from "@/types/dashboard";
 
@@ -26,9 +27,7 @@ export const Route = createFileRoute("/dashboard")({
   }),
 });
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:8000" : "/api");
-const PREDICT_ENDPOINT = `${API_BASE_URL.replace(/\/$/, "")}/predict`;
+const PREDICT_ENDPOINT = buildApiUrl("/predict");
 
 function generateSampleData(count = 25): { vcpu_usage: number; ram_usage: number }[] {
   return Array.from({ length: count }, () => ({

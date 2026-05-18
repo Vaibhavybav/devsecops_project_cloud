@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { setAuthToken } from "@/lib/auth";
+import { buildApiUrl } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -18,9 +19,7 @@ export const Route = createFileRoute("/login")({
   }),
 });
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:8000" : "/api");
-const LOGIN_ENDPOINT = `${API_BASE_URL.replace(/\/$/, "")}/login`;
+const LOGIN_ENDPOINT = buildApiUrl("/login");
 
 function LoginPage() {
   const navigate = useNavigate();
