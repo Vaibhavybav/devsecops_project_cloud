@@ -73,7 +73,6 @@ def setup_logging() -> None:
     logging.getLogger().addHandler(console)
 
 
-
 def main() -> None:
     setup_logging()
     logger = logging.getLogger(__name__)

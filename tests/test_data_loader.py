@@ -1,9 +1,9 @@
-import csv
 import pandas as pd
 import pytest
 from pathlib import Path
 
 from data_loader import load_and_merge_data, DataLoadError
+
 
 @pytest.fixture
 def synthetic_data(tmp_path: Path):
@@ -24,6 +24,7 @@ def synthetic_data(tmp_path: Path):
     pd.DataFrame(usage_rows).to_csv(usage_path, index=False)
     return tmp_path
 
+
 def test_load_and_merge_success(synthetic_data: Path):
     merged = load_and_merge_data(
         data_dir=synthetic_data,
@@ -37,6 +38,7 @@ def test_load_and_merge_success(synthetic_data: Path):
     # Columns from both datasets should be present
     expected_cols = {"id_meta", "timestamp", "server_id", "flavor_id", "id_usage", "vcpu_usage", "ram_usage", "host_id"}
     assert expected_cols.issubset(set(merged.columns))
+
 
 def test_load_and_merge_no_match_raises(synthetic_data: Path):
     # Use a tolerance that is too low to force failure

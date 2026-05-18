@@ -3,6 +3,7 @@ import pytest
 
 from evaluate import evaluate_predictions, format_metrics
 
+
 @pytest.fixture
 def sample_frame():
     data = {
@@ -10,6 +11,7 @@ def sample_frame():
         "ml_anomaly":   [0, 1, 0, 0, 1, 1],
     }
     return pd.DataFrame(data)
+
 
 def test_evaluate_predictions(sample_frame):
     metrics = evaluate_predictions(sample_frame)
@@ -21,6 +23,7 @@ def test_evaluate_predictions(sample_frame):
     # Confusion matrix should be a list of lists
     assert isinstance(metrics["confusion_matrix"], list)
     assert all(isinstance(row, list) for row in metrics["confusion_matrix"])
+
 
 def test_format_metrics(sample_frame):
     metrics = evaluate_predictions(sample_frame)
