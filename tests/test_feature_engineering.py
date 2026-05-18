@@ -1,14 +1,11 @@
 """Unit tests for feature_engineering.py."""
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import pytest
 
 from feature_engineering import (
     FALLBACK_CARBON_INTENSITY,
-    LOW_CARBON_THRESHOLD,
-    MIN_CARBON_REDUCTION_FOR_MOVE,
     SIGNIFICANT_SCORE_IMPROVEMENT,
     _compute_region_score,
     _fallback_carbon_intensity,
