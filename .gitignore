@@ -1,9 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pkl
-!model.pkl
-!scaler.pkl
+
 *.pyo
 *.egg-info/
 dist/
