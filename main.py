@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import logging
 import argparse
 from pathlib import Path
 
 import pandas as pd
+
 
 from data_loader import DataLoadError, load_and_merge_data
 from evaluate import evaluate_predictions, format_metrics
@@ -53,9 +55,30 @@ def save_results(frame: pd.DataFrame, output_file: str | Path) -> Path:
     return output_path
 
 
-def main() -> None:
-    args = parse_args()
+def setup_logging() -> None:
+    """Configure root logger for the pipeline.
 
+    Logs are written to ``pipeline.log`` in the current working directory.
+    The format includes timestamp, level and message for easy debugging.
+    """
+    logging.basicConfig(
+        filename='pipeline.log',
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+    )
+    # Also output to console
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+    logging.getLogger().addHandler(console)
+
+
+
+def main() -> None:
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    args = parse_args()
+    logger.info('Starting pipeline with args: %s', args)
     try:
         merged = load_and_merge_data(
             data_dir=args.data_dir,
@@ -77,8 +100,9 @@ def main() -> None:
             model_path=args.model_file,
             scaler_path=args.scaler_file,
         )
-
+        logger.info('Pipeline succeeded')
     except (DataLoadError, ValueError, FileNotFoundError, ModelArtifactError) as exc:
+        logger.error('Pipeline failed: %s', exc)
         print(f"Pipeline failed: {exc}")
         raise SystemExit(1) from exc
 
@@ -98,9 +122,11 @@ def main() -> None:
         "final_action",
         "reason",
     ]
+    logger.info('Sample predictions')
     print("\nSample predictions:")
     print(final_frame[sample_columns].head(10).to_string(index=False))
 
+    logger.info('Metrics: %s', format_metrics(metrics))
     print("\nMetrics:")
     print(format_metrics(metrics))
 
